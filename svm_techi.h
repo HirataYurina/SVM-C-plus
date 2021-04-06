@@ -11,14 +11,9 @@ struct E2AndJ
 
 class SVM
 {
-public:
-    ~SVM();
-    void train(int);
-
 private:
-    double **x_train;
-    double *y_train;
     double *alpha;
+    double *E;
 
     int num_data;
     int num_feature;
@@ -26,14 +21,18 @@ private:
     double C;
     double toler;
     double b;
-    double *E;
     double ** calculate_kernel();
     bool is_satisfy_kkt(int, double **);
     double calc_gxi(int, double **);
     double calc_ei(int, double **);
-    E2AndJ * get_alpha_j(double e1, int i);
+    E2AndJ * get_alpha_j(double e1, int i, double **k);
 
 public:
+    double **x_train;
+    double *y_train;
+    ~SVM();
     void train(int iter);
     void initiate(double *, double *, int, int);
+    double predict(double *);
+    double accuracy(double **, double *, int);
 };
