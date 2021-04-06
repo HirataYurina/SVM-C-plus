@@ -1,8 +1,17 @@
+/*
+* My SVM codes.
+* author: 栗山未来ii
+* data:   2077/3/31/22:14
+*/
+
 #include <iostream>
 #include <math.h>
-#include <svm_techi.h>
+#include <C:\Users\Administrator\Desktop\SVM\svm-techi.h>
 #include <cmath>
 #include <stdlib.h>
+#include <fstream>
+#include <sstream>
+#include <string>
 
 using namespace std;
 
@@ -46,23 +55,23 @@ double **SVM::calculate_kernel()
 {
     // train_data: (num, shape_feature)
     double **k = new double *[num_data];
-    for (int i; i < num_data; i++)
-    {
-        for (int j; j < num_data; j++)
-        {
+    for (int i = 0; i < num_data; i++)
+    {   
+        k[i] = new double[num_data];
+        for (int j = 0; j < num_data; j++)
+        {   
             double res = 0.0;
-            for (int k; k < num_feature; k++)
+            for (int m = 0; m < num_feature; m++)
             {
-                res += (x_train[i][k] - x_train[j][k]) * (x_train[i][k] - x_train[j][k]);
+                res += (x_train[i][m] - x_train[j][m]) * (x_train[i][m] - x_train[j][m]);
             }
-            k[i][i] = exp(-res / (2 * pow(sigma, 2)));
+            k[i][j] = exp(-res / (2 * pow(sigma, 2)));
         }
     }
-
     return k;
 }
 
-// choose i that does not satisfy kkt condition
+// choose index that does not satisfy kkt condition
 bool SVM::is_satisfy_kkt(int i, double **k)
 {
     double gxi = this->calc_gxi(i, k);
@@ -90,7 +99,7 @@ bool SVM::is_satisfy_kkt(int i, double **k)
 double SVM::calc_gxi(int i, double **k)
 {
     double gxi = 0.0;
-    for (int j; j < num_data; j++)
+    for (int j = 0; j < num_data; j++)
     {
         // calculate gxi
         gxi += alpha[j] * y_train[j] * k[j][i];
@@ -108,7 +117,7 @@ double SVM::calc_ei(int i, double **k)
 }
 
 // get alpha j
-// 参考<<统计学习方法>>
+// get_alpha_j is a important function in SVM
 E2AndJ *SVM::get_alpha_j(double e1, int i, double **k)
 {
     double e2 = 0.0;
@@ -144,12 +153,15 @@ E2AndJ *SVM::get_alpha_j(double e1, int i, double **k)
 }
 
 void SVM::train(int iter)
-// train SVM bu SMO
+// train SVM by SMO
 {
     int iter_step = 0;
-    int param_changed = -1;
+    int param_changed = 1;
+    cout << "start train" << endl;
 
     double **k = calculate_kernel();
+
+    cout << "start train" << endl;
 
     while ((iter_step < iter) && (param_changed) > 0)
     {
@@ -174,13 +186,13 @@ void SVM::train(int iter)
 
                 if (y1 != y2)
                 {
-                    double L = my_max(0.0, alpha_old2 - alpha_old1);
-                    double H = my_min(C, C + alpha_old2 - alpha_old1);
+                    L = my_max(0.0, alpha_old2 - alpha_old1);
+                    H = my_min(C, C + alpha_old2 - alpha_old1);
                 }
                 else
                 {
-                    double L = my_max(0.0, alpha_old2 + alpha_old1 - C);
-                    double H = my_min(C, alpha_old1 + alpha_old2);
+                    L = my_max(0.0, alpha_old2 + alpha_old1 - C);
+                    H = my_min(C, alpha_old1 + alpha_old2);
                 }
 
                 if (L == H)
@@ -236,43 +248,170 @@ void SVM::train(int iter)
                     param_changed += 1;
                 }
             }
+
+            cout << "iter step:" << iter_step << "  i:" << i << "  param changed:" << param_changed << endl;
+
         }
     }
 }
 
 void SVM::initiate(double *data, double *label, int num_data, int num_feature)
-{
+{   
+
+    cout << "start initiate" << endl;
+
     this->num_data = num_data;
     this->num_feature = num_feature;
     this->x_train = new double *[num_data];
-    this->y_train = new double[num_feature];
+    this->y_train = new double[num_data];
 
     // store data into x_train
     // data is [num_data * num_feature,]
     // x_train is [num_data, num_feature]
-    for (int i; i < num_data; i++)
+    for (int i = 0; i < num_data; i++)
     {
         this->x_train[i] = new double[num_feature];
-        for (int j; j < num_feature; j++)
+        for (int j = 0; j < num_feature; j++)
         {
             this->x_train[i][j] = data[i * num_feature + j];
         }
     }
 
     // store label into y_train
-    for (int k; k < num_data; k++)
-    {
-        this->y_train[k] = label[k];
+    for (int k = 0; k < num_data; k++)
+    {   
+        // binary
+        if (label[k] == 1)
+        {
+            this->y_train[k] = 1;
+        }
+        else
+        {
+            this->y_train[k] = -1;
+        }
     }
 
     // initial alpha by zero
-    this->alpha = new double[num_data]{0};
+    this->alpha = new double[num_data]();
     // initiate E by zero
-    this->E = new double[num_data]{0};
+    this->E = new double[num_data]();
+    this->sigma = 10;
+    this->toler = 0.001;
+    this->b = 0.0;
+    this->C = 200.0;
+}
+
+double SVM::predict(double *data)
+{
+    double result = 0;
+
+    for (int i = 0; i < num_data; i++)
+    {   
+        // x_train(178, 13)
+        double *data_temp = x_train[i];
+        double res = 0;
+        // calculate kernel by data and data_temp
+        for (int j = 0; j < num_feature; j++)
+        {
+            res += (data[j] - data_temp[j]) * (data[j] - data_temp[j]);
+        }
+        double single_kernel = exp(res / (-2 * pow(sigma, 2)));
+        result += alpha[i] * y_train[i] * single_kernel;
+    }
+    // sign function
+    if (result < 0)
+    {
+        return -1;
+    }
+    else if (result > 0)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+double SVM::accuracy(double **x_test, double *y_test, int num_test)
+{
+    double num_correct = 0;
+    for (int i = 0; i < num_test; i++)
+    {
+        double prediction = predict(x_test[i]);
+        if (prediction == y_test[i]) num_correct += 1;
+    }
+    cout << "number of correct samples are: " << num_correct << endl;
+    return num_correct / num_test;
 }
 
 int main()
 {
+    // test my codes
+    // double x_train_dummy[12] = {1.0, 2.0, 3.0,
+    //                             4.0, 1.2, 3.3,
+    //                             4.4, 7.6, 9.8,
+    //                             7.7, 8.0, 4.8};
+    // double y_train_dummy[4] = {1.0, -1.0, 1.0, -1.0};
+    // double *x_train_p = x_train_dummy;
+    // double *y_train_p = y_train_dummy;
+    // int num_data = 4;
+    // int num_feat = 3;
+    // SVM svm;
+    // // initiate SVM    
+    // svm.initiate(x_train_p, y_train_p, num_data, num_feat);
+    // svm.train(10);
+
+    // wine dataset
+    ifstream file("C://Users//Administrator//Desktop//SVM//wine.csv", ios::in);
+    string line_str;
+    int num_data_ = 178;
+    int num_feature_ = 13;
+    double inputs[num_data_ * num_feature_];
+    double labels[num_data_];
+    int j = 0;
+
+    while (getline(file, line_str))
+    {
+    //   cout << line_str << endl;
+        stringstream ss(line_str);
+        string str;
+        while (getline(ss, str, ','))
+        {
+            if (j % 14 == 0)
+            {
+                labels[j / 14] = atof(str.c_str());
+            }
+            else
+            {
+                inputs[j / 14 * 13 + j % 14 - 1] = atof(str.c_str());
+            }
+            j++;
+        }
+    }
+
+    // check out x_train and y_train
+    // for(int m = 0; m < num_data * num_feature; m++)
+    // {   
+    //     if ( m % 13 == 0)
+    //     {
+    //         cout << x_train[m] << endl;
+    //     }
+    // }
+
+    // for (int n = 0; n < num_data; n++)
+    // {
+    //     cout << y_train[n] << endl;
+    // }
+
+    // start train svm
+    double *x_train_p = inputs;
+    double *y_train_p = labels;
+    SVM svm;
+    svm.initiate(x_train_p, y_train_p, num_data_, num_feature_);
+    svm.train(100);
+    double accuracy = svm.accuracy(svm.x_train, svm.y_train, num_data_);
+    cout << "accuracy of train dataset is: " << accuracy << endl;
 
     return 0;
 }
